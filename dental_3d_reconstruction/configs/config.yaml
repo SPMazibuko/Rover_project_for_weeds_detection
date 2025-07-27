@@ -1,0 +1,57 @@
+# Dental 3D Reconstruction Pipeline Configuration
+
+# Data Configuration
+data:
+  input_size: [512, 512]  # 2D panoramic X-ray input size
+  output_size: [128, 128, 128]  # 3D volume output size
+  num_classes: 32  # Number of tooth classes
+  augmentation: true
+  normalize: true
+
+# DepthGAN Configuration
+depthgan:
+  latent_dim: 100
+  gen_filters: [64, 128, 256, 512, 1024]
+  disc_filters: [64, 128, 256, 512]
+  learning_rate: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  depth_range: [0.0, 100.0]  # mm range for dental depth
+
+# ResUNet3D Configuration
+resunet3d:
+  in_channels: 1
+  out_channels: 32
+  base_filters: 32
+  depth: 4
+  learning_rate: 0.001
+  dropout: 0.1
+
+# Training Configuration
+training:
+  batch_size: 4
+  epochs: 200
+  val_split: 0.2
+  early_stopping_patience: 20
+  save_best_only: true
+  
+# Loss Configuration
+loss:
+  landmark_weight: 10.0
+  segmentation_weight: 1.0
+  depth_weight: 5.0
+  adversarial_weight: 0.1
+
+# Preprocessing Configuration
+preprocessing:
+  clahe_clip_limit: 2.0
+  clahe_tile_grid_size: [8, 8]
+  roi_detection: true
+  gaussian_blur_sigma: 1.0
+
+# Paths
+paths:
+  data_dir: "data/"
+  checkpoint_dir: "experiments/checkpoints/"
+  log_dir: "experiments/logs/"
+  output_dir: "experiments/outputs/"
