@@ -12,13 +12,41 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.patches as patches
 
+# Jupyter notebook compatibility
+try:
+    # Check if we're in a Jupyter environment
+    from IPython.display import display, HTML
+    from IPython import get_ipython
+    import ipywidgets as widgets
+    JUPYTER_AVAILABLE = True
+    
+    # Configure matplotlib for inline display
+    if get_ipython() is not None:
+        get_ipython().run_line_magic('matplotlib', 'inline')
+        
+except ImportError:
+    JUPYTER_AVAILABLE = False
+    widgets = None
+
 
 class Visualizer3D:
     """3D visualization utilities for dental reconstruction results."""
     
-    def __init__(self, figsize: Tuple[int, int] = (15, 10)):
+    def __init__(self, figsize: Tuple[int, int] = (15, 10), notebook_mode: bool = None):
         self.figsize = figsize
+        # Auto-detect notebook mode if not specified
+        if notebook_mode is None:
+            self.notebook_mode = JUPYTER_AVAILABLE and (get_ipython() is not None)
+        else:
+            self.notebook_mode = notebook_mode and JUPYTER_AVAILABLE
+            
         plt.style.use('default')
+        
+        # Configure for notebook display
+        if self.notebook_mode:
+            plt.rcParams['figure.facecolor'] = 'white'
+            plt.rcParams['savefig.facecolor'] = 'white'
+            plt.rcParams['axes.facecolor'] = 'white'
     
     def plot_2d_results(self, 
                        x_ray: np.ndarray,
@@ -368,6 +396,113 @@ def plot_reconstruction_results(results: Dict[str, torch.Tensor],
     )
     
     print(f"Visualization results saved to {output_path}")
+
+
+def create_interactive_notebook_viewer(results: Dict[str, torch.Tensor]):
+    """
+    Create an interactive Jupyter notebook viewer for reconstruction results.
+    
+    Args:
+        results: Reconstruction results dictionary
+    
+    Returns:
+        Interactive widget for notebook display
+    """
+    if not JUPYTER_AVAILABLE:
+        print("⚠️ Interactive viewer requires Jupyter notebook environment")
+        return None
+    
+    # Extract data
+    x_ray = results['input_xray'].squeeze().cpu().numpy()
+    depth_map = results['depth_map'].squeeze().cpu().numpy()
+    segmentation = results['segmentation'].squeeze().cpu().numpy()
+    
+    # Handle different data dimensions
+    if len(segmentation.shape) == 4:  # (C, D, H, W)
+        segmentation = segmentation.argmax(0)  # Convert to class indices
+    elif len(segmentation.shape) == 3 and segmentation.shape[0] > segmentation.shape[1]:
+        # Assume first dimension is classes
+        segmentation = segmentation.argmax(0)
+    
+    def plot_interactive_slice(slice_idx=0, view='axial', colormap='viridis'):
+        """Interactive plotting function for widgets."""
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        
+        # Original X-ray
+        axes[0].imshow(x_ray, cmap='gray')
+        axes[0].set_title('Original X-ray Image', fontsize=14, fontweight='bold')
+        axes[0].axis('off')
+        axes[0].grid(False)
+        
+        # Depth map slice
+        if len(depth_map.shape) == 3:
+            if view == 'axial':
+                depth_slice = depth_map[slice_idx]
+                title_suffix = f'Axial - Slice {slice_idx}'
+            elif view == 'sagittal':
+                depth_slice = depth_map[:, slice_idx]
+                title_suffix = f'Sagittal - Slice {slice_idx}'
+            else:  # coronal
+                depth_slice = depth_map[:, :, slice_idx]
+                title_suffix = f'Coronal - Slice {slice_idx}'
+        else:
+            depth_slice = depth_map
+            title_suffix = '2D View'
+        
+        im1 = axes[1].imshow(depth_slice, cmap=colormap)
+        axes[1].set_title(f'Depth Map ({title_suffix})', fontsize=14, fontweight='bold')
+        axes[1].axis('off')
+        plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04, label='Depth (mm)')
+        
+        # Segmentation slice
+        if len(segmentation.shape) == 3:
+            if view == 'axial':
+                seg_slice = segmentation[slice_idx]
+            elif view == 'sagittal':
+                seg_slice = segmentation[:, slice_idx]
+            else:  # coronal
+                seg_slice = segmentation[:, :, slice_idx]
+        else:
+            seg_slice = segmentation
+        
+        im2 = axes[2].imshow(seg_slice, cmap='tab20')
+        axes[2].set_title(f'3D Segmentation ({title_suffix})', fontsize=14, fontweight='bold')
+        axes[2].axis('off')
+        plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04, label='Tooth Class')
+        
+        plt.tight_layout()
+        plt.show()
+    
+    # Create interactive widgets
+    max_slices = segmentation.shape[0] if len(segmentation.shape) == 3 else 1
+    
+    slice_slider = widgets.IntSlider(
+        value=max_slices//2 if max_slices > 1 else 0,
+        min=0,
+        max=max(max_slices-1, 0),
+        step=1,
+        description='Slice:',
+        style={'description_width': 'initial'}
+    )
+    
+    view_dropdown = widgets.Dropdown(
+        options=['axial', 'sagittal', 'coronal'] if len(segmentation.shape) == 3 else ['2d'],
+        value='axial' if len(segmentation.shape) == 3 else '2d',
+        description='View:',
+        style={'description_width': 'initial'}
+    )
+    
+    colormap_dropdown = widgets.Dropdown(
+        options=['viridis', 'plasma', 'inferno', 'magma', 'coolwarm', 'RdYlBu'],
+        value='viridis',
+        description='Colormap:',
+        style={'description_width': 'initial'}
+    )
+    
+    return widgets.interactive(plot_interactive_slice, 
+                              slice_idx=slice_slider, 
+                              view=view_dropdown,
+                              colormap=colormap_dropdown)
 
 
 def create_summary_report(results: Dict[str, torch.Tensor],

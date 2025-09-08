@@ -14,3 +14,8 @@ monai>=0.7.0
 einops>=0.4.0
 wandb>=0.12.0
 pyyaml>=5.4.0
+
+# Jupyter notebook support
+jupyter>=1.0.0
+ipywidgets>=7.6.0
+plotly>=5.0.0

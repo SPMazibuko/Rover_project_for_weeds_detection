@@ -24,7 +24,7 @@ from .preprocessing import DentalImagePreprocessor, ROIDetector
 from .losses import ToothLandmarkLoss, CombinedDentalLoss
 from .utils import (
     DentalDataLoader, Visualizer3D, DentalMetrics,
-    plot_reconstruction_results, evaluate_reconstruction
+    plot_reconstruction_results, evaluate_reconstruction, create_interactive_notebook_viewer
 )
 
 __version__ = "1.0.0"
@@ -45,5 +45,5 @@ __all__ = [
     
     # Utilities
     'DentalDataLoader', 'Visualizer3D', 'DentalMetrics',
-    'plot_reconstruction_results', 'evaluate_reconstruction'
+    'plot_reconstruction_results', 'evaluate_reconstruction', 'create_interactive_notebook_viewer'
 ]
